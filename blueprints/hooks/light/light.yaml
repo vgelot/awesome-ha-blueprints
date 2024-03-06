@@ -17,7 +17,7 @@ blueprint:
     🚀 This blueprint is part of the **[Awesome HA Blueprints](https://epmatt.github.io/awesome-ha-blueprints) project**.
 
     ℹ️ Version 2022.07.30
-  source_url: https://github.com/EPMatt/awesome-ha-blueprints/blob/main/blueprints/hooks/light/light.yaml
+  source_url: https://github.com/vgelot/awesome-ha-blueprints/blob/main/blueprints/hooks/light/light.yaml
   domain: automation
   input:
     controller_device:
@@ -151,25 +151,14 @@ blueprint:
           step: 1
           unit_of_measurement: brightness
           mode: slider
-    color_temp_steps_short:
-      name: (Optional) Light color temp steps - short actions
-      description: Number of steps from min to max color temp when controlling color temp with short actions (eg. button press).
-      default: 5
+    color_steps_short:
+      name: (Optional) Light color steps - short actions
+      description: Number of steps from min to max color when controlling color with short actions (eg. button press).
+      default: 3
       selector:
         number:
           min: 2
-          max: 20
-          step: 1
-          unit_of_measurement: steps
-          mode: box
-    color_temp_steps_long:
-      name: (Optional) Light color temp steps - long actions
-      description: Number of steps from min to max color temp when controlling color temp with long actions (eg. button hold or controller rotation).
-      default: 10
-      selector:
-        number:
-          min: 2
-          max: 20
+          max: 10
           step: 1
           unit_of_measurement: steps
           mode: box
@@ -256,13 +245,13 @@ variables:
       color_up_repeat: button_right_long
     IKEA E2001/E2002 STYRBAR Remote control (#3):
       turn_on: button_up_short
-      brightness_up_repeat: button_up_long
       turn_off: button_down_short
+      brightness_up_repeat: button_up_long
       brightness_down_repeat: button_down_long
-      color_temp_down: button_left_short
-      color_temp_down_repeat: button_left_long
-      color_temp_up: button_right_short
-      color_temp_up_repeat: button_right_long
+      color_up_cycle: button_right_short
+      color_down_cycle: button_left_short
+      color_up_repeat: button_right_long
+      color_down_repeat: button_left_long
     IKEA ICTC-G-1 TRÅDFRI wireless dimmer:
       brightness_down_repeat: rotate_left
       brightness_up_repeat: rotate_right
@@ -352,10 +341,8 @@ variables:
   color_up_repeat: '{{ controller_mapping[controller_model]["color_up_repeat"] | default(None) }}'
   color_down: '{{ controller_mapping[controller_model]["color_down"] | default(None) }}'
   color_down_repeat: '{{ controller_mapping[controller_model]["color_down_repeat"] | default(None) }}'
-  color_temp_up: '{{ controller_mapping[controller_model]["color_temp_up"] | default(None) }}'
-  color_temp_up_repeat: '{{ controller_mapping[controller_model]["color_temp_up_repeat"] | default(None) }}'
-  color_temp_down: '{{ controller_mapping[controller_model]["color_temp_down"] | default(None) }}'
-  color_temp_down_repeat: '{{ controller_mapping[controller_model]["color_temp_down_repeat"] | default(None) }}'
+  color_up_cycle: '{{ controller_mapping[controller_model]["color_up_cycle"] | default(None) }}'
+  color_down_cycle: '{{ controller_mapping[controller_model]["color_down_cycle"] | default(None) }}'
   toggle: '{{ controller_mapping[controller_model]["toggle"] | default(None) }}'
   turn_on: '{{ controller_mapping[controller_model]["turn_on"] | default(None) }}'
   turn_off: '{{ controller_mapping[controller_model]["turn_off"] | default(None) }}'
@@ -368,8 +355,7 @@ variables:
   brightness_steps_long: !input brightness_steps_long
   force_brightness: !input force_brightness
   on_brightness: !input on_brightness
-  color_temp_steps_short: !input color_temp_steps_short
-  color_temp_steps_long: !input color_temp_steps_long
+  color_steps_short: !input color_steps_short
   smooth_power_on: !input smooth_power_on
   smooth_power_off: !input smooth_power_off
   color_modes:
@@ -383,8 +369,7 @@ variables:
     color_modes["Hue - Saturation"] }} {%- elif "color_temp" in supported_color_modes -%} {{ color_modes["Color Temperature"] }} {%- else -%} {{ color_modes["None"] }} {%- endif -%} {%- else -%} {{ color_modes[light_color_mode] }} {%- endif -%}
   step_short: "{{ (max_brightness-min_brightness)/brightness_steps_short }}"
   step_long: "{{ (max_brightness-min_brightness)/brightness_steps_long }}"
-  color_temp_step_short: "{{ (state_attr(light,'max_mireds')-state_attr(light,'min_mireds'))/color_temp_steps_short }}"
-  color_temp_step_long: "{{ (state_attr(light,'max_mireds')-state_attr(light,'min_mireds'))/color_temp_steps_long }}"
+  step_short_color: "{{ (state_attr(light,'max_mireds')-state_attr(light,'min_mireds'))/(color_steps_short-1) }}"
 mode: restart
 max_exceeded: silent
 trigger:
@@ -641,7 +626,7 @@ action:
                         entity_id: !input light
                       - delay:
                           milliseconds: 250
-      - conditions: '{{ action == color_temp_up and states(light) == "on" and light_color_mode_id != "none" }}'
+      - conditions: '{{ action == color_up_cycle and states(light) == "on" and light_color_mode_id != "none" }}'
         sequence:
           choose:
             - conditions: '{{ light_color_mode_id == "color_temp" and state_attr(light,"color_temp") == state_attr(light,"max_mireds") }}'
@@ -655,10 +640,10 @@ action:
               sequence:
                 - service: light.turn_on
                   data:
-                    color_temp: '{{ state_attr(light,"color_temp")|int + color_temp_step_short - (state_attr(light,"color_temp")|int % color_temp_step_short) }}'
+                    color_temp: '{{ state_attr(light,"color_temp")|int + step_short_color - (state_attr(light,"color_temp")|int % step_short_color) }}'
                     transition: 0.25
                   entity_id: !input light
-      - conditions: '{{ action == color_temp_down and states(light) == "on" and light_color_mode_id != "none" }}'
+      - conditions: '{{ action == color_down_cycle and states(light) == "on" and light_color_mode_id != "none" }}'
         sequence:
           choose:
             - conditions: '{{ light_color_mode_id == "color_temp" and state_attr(light,"color_temp") == state_attr(light,"min_mireds") }}'
@@ -672,36 +657,6 @@ action:
               sequence:
                 - service: light.turn_on
                   data:
-                    color_temp: '{{ state_attr(light,"color_temp")|int - color_temp_step_short + ((color_temp_step_short - (state_attr(light,"color_temp")|int % color_temp_step_short)) % color_temp_step_short) }}'
+                    color_temp: '{{ state_attr(light,"color_temp")|int - step_short_color + ((step_short_color - (state_attr(light,"color_temp")|int % step_short_color)) % step_short_color) }}'
                     transition: 0.25
                   entity_id: !input light
-      - conditions: '{{ action == color_temp_up_repeat and states(light) == "on" and light_color_mode_id != "none" }}'
-        sequence:
-          choose:
-            - conditions: '{{ light_color_mode_id == "color_temp" }}'
-              sequence:
-                - repeat:
-                    while: "{{ true }}"
-                    sequence:
-                      - service: light.turn_on
-                        data:
-                          color_temp: '{{ [state_attr(light,"color_temp")|int + color_temp_step_long, state_attr(light,"max_mireds")]|min }}'
-                          transition: 0.25
-                        entity_id: !input light
-                      - delay:
-                          milliseconds: 250
-      - conditions: '{{ action == color_temp_down_repeat and states(light) == "on" and light_color_mode_id != "none" }}'
-        sequence:
-          choose:
-            - conditions: '{{ light_color_mode_id == "color_temp" }}'
-              sequence:
-                - repeat:
-                    while: "{{ true }}"
-                    sequence:
-                      - service: light.turn_on
-                        data:
-                          color_temp: '{{ [state_attr(light,"color_temp")|int - color_temp_step_long, state_attr(light,"min_mireds")]|max }}'
-                          transition: 0.25
-                        entity_id: !input light
-                      - delay:
-                          milliseconds: 250
