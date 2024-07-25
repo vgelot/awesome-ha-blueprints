@@ -63,19 +63,15 @@ condition:
       {{ now().strftime('%A') in wakeup_days }}
 
 action:
-  - service: light.turn_on
-    data:
-      entity_id: "{{ target_light }}"
-      brightness: "{{ min_brightness }}"
   - repeat:
       count: "{{ step_transition_number }}"
       sequence:
-        - delay:
-            minutes: "{{ step_transition_duration }}"
         - service: light.turn_on
           data:
             entity_id: "{{ target_light }}"
-            brightness: '{{ (state_attr(target_light,"brightness")+brightness_transition) }}'
+            brightness: "{{ (max_brightness - (brightness_transition*(step_transition_number-repeat.index+1))) }}"
+        - delay:
+            minutes: "{{ step_transition_duration }}"
   - service: light.turn_on
     data:
       entity_id: "{{ target_light }}"
